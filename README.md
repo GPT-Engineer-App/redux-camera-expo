@@ -22,6 +22,12 @@ This project is a React Native application that integrates Redux for state manag
 - Camera functionality using Expo Camera
 - Navigation between Home and Camera screens
 
+## Project Structure
+
+- `src/screens/`: Contains the main screen components (HomeScreen and CameraScreen)
+- `src/store/`: Contains Redux store configuration and slices
+- `App.tsx`: Main application component with navigation setup
+
 ## Extending the Project
 
 ### Adding New Redux Slices
@@ -35,6 +41,7 @@ This project is a React Native application that integrates Redux for state manag
 
 1. Create a new screen component in `src/screens`.
 2. Add the screen to the navigation stack in `App.tsx`.
+3. Update the `RootStackParamList` type in `App.tsx` if necessary.
 
 ## Testing
 
@@ -42,3 +49,16 @@ This project is a React Native application that integrates Redux for state manag
 - To test on Android: `npm run android`
 
 Ensure you have the appropriate development environment set up for iOS and Android testing.
+
+## Troubleshooting
+
+If you encounter any issues:
+
+1. Make sure all dependencies are correctly installed.
+2. Check that your Expo CLI is up to date.
+3. Clear the Metro bundler cache: `expo start -c`
+4. Ensure you have the necessary permissions for camera usage on your device or emulator.
+
+## Contributing
+
+Feel free to submit issues or pull requests if you have suggestions for improvements or find any bugs.
