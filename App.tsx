@@ -2,9 +2,9 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { store } from './src/store';
-import HomeScreen from './src/screens/HomeScreen';
-import CameraScreen from './src/screens/CameraScreen';
+import { store } from '@store/index';
+import HomeScreen from '@screens/HomeScreen';
+import CameraScreen from '@screens/CameraScreen';
 
 export type RootStackParamList = {
   Home: undefined;
