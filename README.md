@@ -16,6 +16,20 @@ This project is a React Native application that integrates Redux for state manag
 
 3. Use the Expo Go app on your mobile device to scan the QR code, or run on an emulator/simulator.
 
+## Available Scripts
+
+- `npm start`: Start the Expo development server
+- `npm run android`: Start the app on Android
+- `npm run ios`: Start the app on iOS
+- `npm run web`: Start the app in a web browser
+- `npm run eject`: Eject from Expo
+- `npm test`: Run tests
+- `npm run lint`: Run ESLint
+- `npm run build:dev`: Start the development build
+- `npm run build`: Build the app for production
+- `npm run build:android`: Build the Android app
+- `npm run build:ios`: Build the iOS app
+
 ## Features
 
 - Redux state management
@@ -45,10 +59,30 @@ This project is a React Native application that integrates Redux for state manag
 
 ## Testing
 
-- To test on iOS: `npm run ios`
-- To test on Android: `npm run android`
+Run tests using:
+```
+npm test
+```
 
-Ensure you have the appropriate development environment set up for iOS and Android testing.
+## Linting
+
+Run ESLint using:
+```
+npm run lint
+```
+
+## Building for Production
+
+To build the app for production:
+```
+npm run build
+```
+
+For platform-specific builds:
+```
+npm run build:android
+npm run build:ios
+```
 
 ## Troubleshooting
 
