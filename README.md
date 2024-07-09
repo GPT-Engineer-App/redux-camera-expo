@@ -1,38 +1,44 @@
-# redux-camera-expo
+# React Native Redux Camera App
 
-set up a React Native project with Redux for state management and integrated Expo Camera.
+This project is a React Native application that integrates Redux for state management and uses the Expo Camera module.
 
-## Collaborate with GPT Engineer
+## Setup and Running
 
-This is a [gptengineer.app](https://gptengineer.app)-synced repository 🌟🤖
+1. Install dependencies:
+   ```
+   npm install
+   ```
 
-Changes made via gptengineer.app will be committed to this repo.
+2. Start the Expo development server:
+   ```
+   npm start
+   ```
 
-If you clone this repo and push changes, you will have them reflected in the GPT Engineer UI.
+3. Use the Expo Go app on your mobile device to scan the QR code, or run on an emulator/simulator.
 
-## Tech stack
+## Features
 
-This project is built with .
+- Redux state management
+- Camera functionality using Expo Camera
+- Navigation between Home and Camera screens
 
-- Vite
-- React
-- shadcn-ui
-- Tailwind CSS
+## Extending the Project
 
-## Setup
+### Adding New Redux Slices
 
-```sh
-git clone https://github.com/GPT-Engineer-App/redux-camera-expo.git
-cd redux-camera-expo
-npm i
-```
+1. Create a new file in `src/store` for your slice (e.g., `userSlice.ts`).
+2. Define your slice using `createSlice` from `@reduxjs/toolkit`.
+3. Export the reducer and actions.
+4. Import and add the reducer to the `store/index.ts` file.
 
-```sh
-npm run dev
-```
+### Adding New Screens
 
-This will run a dev server with auto reloading and an instant preview.
+1. Create a new screen component in `src/screens`.
+2. Add the screen to the navigation stack in `App.tsx`.
 
-## Requirements
+## Testing
 
-- Node.js & npm - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- To test on iOS: `npm run ios`
+- To test on Android: `npm run android`
+
+Ensure you have the appropriate development environment set up for iOS and Android testing.
