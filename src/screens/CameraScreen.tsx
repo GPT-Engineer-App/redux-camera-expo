@@ -3,8 +3,14 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Camera, CameraType } from 'expo-camera';
 import { useDispatch } from 'react-redux';
 import { setLastPhoto } from '../store/cameraSlice';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../App';
 
-const CameraScreen: React.FC = () => {
+type CameraScreenProps = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Camera'>;
+};
+
+const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [type, setType] = useState(CameraType.back);
   const cameraRef = useRef<Camera | null>(null);
@@ -21,6 +27,7 @@ const CameraScreen: React.FC = () => {
     if (cameraRef.current) {
       const photo = await cameraRef.current.takePictureAsync();
       dispatch(setLastPhoto(photo.uri));
+      navigation.navigate('Home');
     }
   };
 

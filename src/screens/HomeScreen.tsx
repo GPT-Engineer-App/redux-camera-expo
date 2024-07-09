@@ -3,11 +3,7 @@ import { View, Text, Button, Image } from 'react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type RootStackParamList = {
-  Home: undefined;
-  Camera: undefined;
-};
+import { RootStackParamList } from '../../App';
 
 type HomeScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
