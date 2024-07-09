@@ -4,8 +4,13 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+type RootStackParamList = {
+  Home: undefined;
+  Camera: undefined;
+};
+
 type HomeScreenProps = {
-  navigation: NativeStackNavigationProp<any, 'Home'>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
 };
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {

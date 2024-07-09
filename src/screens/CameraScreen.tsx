@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Camera } from 'expo-camera';
+import { Camera, CameraType } from 'expo-camera';
 import { useDispatch } from 'react-redux';
 import { setLastPhoto } from '../store/cameraSlice';
 
 const CameraScreen: React.FC = () => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [type, setType] = useState(CameraType.back);
   const cameraRef = useRef<Camera | null>(null);
   const dispatch = useDispatch();
 
@@ -32,7 +33,7 @@ const CameraScreen: React.FC = () => {
 
   return (
     <View style={{ flex: 1 }}>
-      <Camera style={{ flex: 1 }} ref={cameraRef}>
+      <Camera style={{ flex: 1 }} type={type} ref={cameraRef}>
         <View
           style={{
             flex: 1,
@@ -40,6 +41,20 @@ const CameraScreen: React.FC = () => {
             flexDirection: 'row',
           }}
         >
+          <TouchableOpacity
+            style={{
+              flex: 0.1,
+              alignSelf: 'flex-end',
+              alignItems: 'center',
+            }}
+            onPress={() => {
+              setType(type === CameraType.back ? CameraType.front : CameraType.back);
+            }}
+          >
+            <Text style={{ fontSize: 18, marginBottom: 10, color: 'white' }}>
+              Flip
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={{
               flex: 0.1,
