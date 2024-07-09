@@ -18,8 +18,8 @@ export default function App() {
     <Provider store={store}>
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Home">
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Camera" component={CameraScreen} />
+          <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
+          <Stack.Screen name="Camera" component={CameraScreen} options={{ title: 'Camera' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </Provider>
