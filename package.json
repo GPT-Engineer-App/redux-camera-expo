@@ -27,7 +27,8 @@
   "private": true,
   "overrides": {
     "@tensorflow/tfjs-react-native": {
-      "expo-camera": "~13.2.1"
+      "expo-camera": "~13.2.1",
+      "react": "18.2.0"
     }
   }
 }
