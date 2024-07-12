@@ -24,5 +24,10 @@
   "devDependencies": {
     "@babel/core": "^7.20.0"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@tensorflow/tfjs-react-native": {
+      "expo-camera": "~13.2.1"
+    }
+  }
 }
