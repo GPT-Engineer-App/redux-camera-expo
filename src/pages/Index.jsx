@@ -21,13 +21,6 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-    }
-  }, [navigate]);
-
-  useEffect(() => {
     const loadModel = async () => {
       try {
         await tf.ready();
@@ -205,7 +198,7 @@ const Index = () => {
         title: "Detection saved",
         description: "The detection has been successfully saved to the server.",
       });
-      refetch();
+      refetch(); // Refetch the detections after successful mutation
     },
     onError: (error) => {
       toast({
