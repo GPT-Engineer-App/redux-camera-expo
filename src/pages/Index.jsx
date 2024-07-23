@@ -245,9 +245,10 @@ const Index = () => {
 
   const stopDetection = () => {
     setIsDetectionRunning(false);
+    saveDetection(); // Automatically save detection when stopping
     toast({
       title: "Detection Stopped",
-      description: "Object detection process has been stopped.",
+      description: "Object detection process has been stopped and results saved.",
     });
   };
 
@@ -271,7 +272,7 @@ const Index = () => {
             } else if (transcript.includes('start detection')) {
               startDetection();
             } else if (transcript.includes('stop detection')) {
-              stopDetection();
+              stopDetection(); // This will now automatically save the detection
             }
           }
         }
@@ -342,9 +343,6 @@ const Index = () => {
                 <Button onClick={isDetectionRunning ? stopDetection : startDetection} disabled={!isVideoStarted}>
                   {isDetectionRunning ? <Square className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                   {isDetectionRunning ? "Stop Detection" : "Start Detection"}
-                </Button>
-                <Button onClick={saveDetection} disabled={!isVideoStarted || !isDetectionRunning}>
-                  Save Detection
                 </Button>
                 <Button onClick={isListening ? stopListening : startListening}>
                   <Mic className="mr-2 h-4 w-4" />
