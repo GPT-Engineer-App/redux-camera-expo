@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [model, setModel] = useState(null);
@@ -12,6 +13,7 @@ const Index = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const { toast } = useToast()
+  const navigate = useNavigate();
 
   useEffect(() => {
     tf.ready().then(() => {
@@ -71,25 +73,43 @@ const Index = () => {
     }
   }, [model]);
 
-  const { data: detections, isLoading, isError } = useQuery({
+  const { data: detections, isLoading, isError, error } = useQuery({
     queryKey: ['detections'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
       const response = await fetch('https://backengine-of3g.fly.dev/api/detections', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+      if (response.status === 401) {
+        // Token might be expired, redirect to login
+        navigate('/login');
+        throw new Error('Unauthorized: Please log in again');
+      }
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
       return response.json();
     },
+    onError: (error) => {
+      toast({
+        title: "Error fetching detections",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
 
   const mutation = useMutation({
     mutationFn: async (newDetection) => {
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
       const response = await fetch('https://backengine-of3g.fly.dev/api/detections', {
         method: 'POST',
         headers: {
@@ -98,6 +118,11 @@ const Index = () => {
         },
         body: JSON.stringify(newDetection),
       });
+      if (response.status === 401) {
+        // Token might be expired, redirect to login
+        navigate('/login');
+        throw new Error('Unauthorized: Please log in again');
+      }
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
@@ -178,7 +203,7 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               {isLoading && <p>Loading...</p>}
-              {isError && <p>Error fetching detections</p>}
+              {isError && <p>Error fetching detections: {error.message}</p>}
               {detections && (
                 <ul>
                   {detections.slice(0, 5).map((detection) => (
