@@ -55,34 +55,42 @@ const Index = () => {
   const detectObjects = async () => {
     if (model && videoRef.current && canvasRef.current) {
       try {
-        const predictions = await model.detect(videoRef.current);
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.font = '16px sans-serif';
-        ctx.textBaseline = 'top';
+        // Ensure the video is ready and has valid dimensions
+        if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+          // Set canvas dimensions to match the video
+          canvasRef.current.width = videoRef.current.videoWidth;
+          canvasRef.current.height = videoRef.current.videoHeight;
 
-        const objectCounts = {};
+          // Perform object detection
+          const predictions = await model.detect(videoRef.current);
+          const ctx = canvasRef.current.getContext('2d');
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.font = '16px sans-serif';
+          ctx.textBaseline = 'top';
 
-        predictions.forEach(prediction => {
-          const [x, y, width, height] = prediction.bbox;
-          const label = prediction.class;
+          const objectCounts = {};
 
-          ctx.strokeStyle = '#00FFFF';
-          ctx.lineWidth = 4;
-          ctx.strokeRect(x, y, width, height);
+          predictions.forEach(prediction => {
+            const [x, y, width, height] = prediction.bbox;
+            const label = prediction.class;
 
-          ctx.fillStyle = '#00FFFF';
-          const textWidth = ctx.measureText(label).width;
-          const textHeight = parseInt('16px sans-serif', 10);
-          ctx.fillRect(x, y, textWidth + 4, textHeight + 4);
+            ctx.strokeStyle = '#00FFFF';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(x, y, width, height);
 
-          ctx.fillStyle = '#000000';
-          ctx.fillText(label, x, y);
+            ctx.fillStyle = '#00FFFF';
+            const textWidth = ctx.measureText(label).width;
+            const textHeight = parseInt('16px sans-serif', 10);
+            ctx.fillRect(x, y, textWidth + 4, textHeight + 4);
 
-          objectCounts[label] = (objectCounts[label] || 0) + 1;
-        });
+            ctx.fillStyle = '#000000';
+            ctx.fillText(label, x, y);
 
-        setDetectedObjects(objectCounts);
+            objectCounts[label] = (objectCounts[label] || 0) + 1;
+          });
+
+          setDetectedObjects(objectCounts);
+        }
       } catch (error) {
         console.error('Error detecting objects:', error);
         toast({
