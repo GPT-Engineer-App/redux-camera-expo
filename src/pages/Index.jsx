@@ -74,7 +74,12 @@ const Index = () => {
   const { data: detections, isLoading, isError } = useQuery({
     queryKey: ['detections'],
     queryFn: async () => {
-      const response = await fetch('https://backengine-of3g.fly.dev/api/detections');
+      const token = localStorage.getItem('token');
+      const response = await fetch('https://backengine-of3g.fly.dev/api/detections', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
@@ -84,10 +89,12 @@ const Index = () => {
 
   const mutation = useMutation({
     mutationFn: async (newDetection) => {
+      const token = localStorage.getItem('token');
       const response = await fetch('https://backengine-of3g.fly.dev/api/detections', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(newDetection),
       });
