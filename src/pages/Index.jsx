@@ -6,10 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom';
+import { Camera, CameraOff, RefreshCw } from 'lucide-react';
 
 const Index = () => {
   const [model, setModel] = useState(null);
   const [detectedObjects, setDetectedObjects] = useState({});
+  const [facingMode, setFacingMode] = useState('environment'); // 'environment' for back camera, 'user' for front camera
+  const [isVideoStarted, setIsVideoStarted] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const { toast } = useToast()
@@ -36,10 +39,13 @@ const Index = () => {
   const startVideo = async () => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode }
+        });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play();
+          setIsVideoStarted(true);
         }
       } catch (error) {
         console.error('Error accessing camera:', error);
@@ -52,16 +58,28 @@ const Index = () => {
     }
   };
 
+  const stopVideo = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+      setIsVideoStarted(false);
+    }
+  };
+
+  const toggleCamera = async () => {
+    stopVideo();
+    setFacingMode(prevMode => prevMode === 'user' ? 'environment' : 'user');
+    await startVideo();
+  };
+
   const detectObjects = async () => {
     if (model && videoRef.current && canvasRef.current) {
       try {
-        // Ensure the video is ready and has valid dimensions
         if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          // Set canvas dimensions to match the video
           canvasRef.current.width = videoRef.current.videoWidth;
           canvasRef.current.height = videoRef.current.videoHeight;
 
-          // Perform object detection
           const predictions = await model.detect(videoRef.current);
           const ctx = canvasRef.current.getContext('2d');
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -104,7 +122,7 @@ const Index = () => {
 
   useEffect(() => {
     let interval;
-    if (videoRef.current && canvasRef.current && model) {
+    if (videoRef.current && canvasRef.current && model && isVideoStarted) {
       interval = setInterval(() => {
         detectObjects();
       }, 100);
@@ -114,7 +132,7 @@ const Index = () => {
         clearInterval(interval);
       }
     };
-  }, [model]);
+  }, [model, isVideoStarted]);
 
   const { data: detections, isLoading, isError, error } = useQuery({
     queryKey: ['detections'],
@@ -218,8 +236,17 @@ const Index = () => {
                   className="absolute top-0 left-0"
                 />
               </div>
-              <Button onClick={startVideo} className="mt-4">Start Video</Button>
-              <Button onClick={saveDetection} className="mt-4 ml-2">Save Detection</Button>
+              <div className="flex mt-4 space-x-2">
+                <Button onClick={isVideoStarted ? stopVideo : startVideo}>
+                  {isVideoStarted ? <CameraOff className="mr-2 h-4 w-4" /> : <Camera className="mr-2 h-4 w-4" />}
+                  {isVideoStarted ? "Stop Video" : "Start Video"}
+                </Button>
+                <Button onClick={toggleCamera} disabled={!isVideoStarted}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Toggle Camera
+                </Button>
+                <Button onClick={saveDetection} disabled={!isVideoStarted}>Save Detection</Button>
+              </div>
             </CardContent>
           </Card>
         </div>
