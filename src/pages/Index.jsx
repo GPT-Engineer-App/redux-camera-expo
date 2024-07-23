@@ -46,8 +46,12 @@ const Index = () => {
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
+          await videoRef.current.play();
           setIsVideoStarted(true);
+          toast({
+            title: "Success",
+            description: "Video started successfully.",
+          });
         }
       } catch (error) {
         console.error('Error accessing camera:', error);
@@ -67,6 +71,10 @@ const Index = () => {
       videoRef.current.srcObject = null;
       setIsVideoStarted(false);
       setIsDetectionRunning(false);
+      toast({
+        title: "Video Stopped",
+        description: "Video stream has been stopped.",
+      });
     }
   };
 
