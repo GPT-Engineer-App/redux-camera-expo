@@ -48,7 +48,8 @@ const Login = () => {
         title: "Login Successful",
         description: "You have been successfully logged in.",
       });
-      navigate('/', { replace: true });
+      // Force a page reload to trigger the App component to re-render
+      window.location.href = '/';
     },
     onError: (error) => {
       toast({
