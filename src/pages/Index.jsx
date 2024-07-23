@@ -137,7 +137,7 @@ const Index = () => {
     };
   }, [model, isVideoStarted, isDetectionRunning]);
 
-  const { data: detections, isLoading, isError, error } = useQuery({
+  const { data: detections, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['detections'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
@@ -150,6 +150,7 @@ const Index = () => {
         }
       });
       if (response.status === 401) {
+        localStorage.removeItem('token');
         navigate('/login');
         throw new Error('Unauthorized: Please log in again');
       }
@@ -158,6 +159,7 @@ const Index = () => {
       }
       return response.json();
     },
+    retry: false,
     onError: (error) => {
       toast({
         title: "Error fetching detections",
@@ -182,6 +184,7 @@ const Index = () => {
         body: JSON.stringify(newDetection),
       });
       if (response.status === 401) {
+        localStorage.removeItem('token');
         navigate('/login');
         throw new Error('Unauthorized: Please log in again');
       }
@@ -194,14 +197,15 @@ const Index = () => {
       toast({
         title: "Detection saved",
         description: "The detection has been successfully saved to the server.",
-      })
+      });
+      refetch(); // Refetch the detections after successful mutation
     },
     onError: (error) => {
       toast({
         title: "Error",
         description: `Failed to save detection: ${error.message}`,
         variant: "destructive",
-      })
+      });
     },
   });
 
