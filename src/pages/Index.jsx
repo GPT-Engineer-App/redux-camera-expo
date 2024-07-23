@@ -16,61 +16,96 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    tf.ready().then(() => {
-      cocossd.load().then(loadedModel => {
+    const loadModel = async () => {
+      try {
+        await tf.ready();
+        const loadedModel = await cocossd.load();
         setModel(loadedModel);
-      });
-    });
-  }, []);
+      } catch (error) {
+        console.error('Error loading model:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load object detection model. Please try refreshing the page.",
+          variant: "destructive",
+        });
+      }
+    };
+    loadModel();
+  }, [toast]);
 
   const startVideo = async () => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      videoRef.current.srcObject = stream;
-      videoRef.current.play();
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        toast({
+          title: "Error",
+          description: "Failed to access camera. Please check your camera permissions.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
   const detectObjects = async () => {
     if (model && videoRef.current && canvasRef.current) {
-      const predictions = await model.detect(videoRef.current);
-      const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      ctx.font = '16px sans-serif';
-      ctx.textBaseline = 'top';
+      try {
+        const predictions = await model.detect(videoRef.current);
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.font = '16px sans-serif';
+        ctx.textBaseline = 'top';
 
-      const objectCounts = {};
+        const objectCounts = {};
 
-      predictions.forEach(prediction => {
-        const [x, y, width, height] = prediction.bbox;
-        const label = prediction.class;
+        predictions.forEach(prediction => {
+          const [x, y, width, height] = prediction.bbox;
+          const label = prediction.class;
 
-        ctx.strokeStyle = '#00FFFF';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(x, y, width, height);
+          ctx.strokeStyle = '#00FFFF';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(x, y, width, height);
 
-        ctx.fillStyle = '#00FFFF';
-        const textWidth = ctx.measureText(label).width;
-        const textHeight = parseInt('16px sans-serif', 10);
-        ctx.fillRect(x, y, textWidth + 4, textHeight + 4);
+          ctx.fillStyle = '#00FFFF';
+          const textWidth = ctx.measureText(label).width;
+          const textHeight = parseInt('16px sans-serif', 10);
+          ctx.fillRect(x, y, textWidth + 4, textHeight + 4);
 
-        ctx.fillStyle = '#000000';
-        ctx.fillText(label, x, y);
+          ctx.fillStyle = '#000000';
+          ctx.fillText(label, x, y);
 
-        objectCounts[label] = (objectCounts[label] || 0) + 1;
-      });
+          objectCounts[label] = (objectCounts[label] || 0) + 1;
+        });
 
-      setDetectedObjects(objectCounts);
+        setDetectedObjects(objectCounts);
+      } catch (error) {
+        console.error('Error detecting objects:', error);
+        toast({
+          title: "Error",
+          description: "An error occurred while detecting objects. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
   useEffect(() => {
-    if (videoRef.current && canvasRef.current) {
-      const interval = setInterval(() => {
+    let interval;
+    if (videoRef.current && canvasRef.current && model) {
+      interval = setInterval(() => {
         detectObjects();
       }, 100);
-      return () => clearInterval(interval);
     }
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [model]);
 
   const { data: detections, isLoading, isError, error } = useQuery({
@@ -86,7 +121,6 @@ const Index = () => {
         }
       });
       if (response.status === 401) {
-        // Token might be expired, redirect to login
         navigate('/login');
         throw new Error('Unauthorized: Please log in again');
       }
@@ -119,7 +153,6 @@ const Index = () => {
         body: JSON.stringify(newDetection),
       });
       if (response.status === 401) {
-        // Token might be expired, redirect to login
         navigate('/login');
         throw new Error('Unauthorized: Please log in again');
       }
