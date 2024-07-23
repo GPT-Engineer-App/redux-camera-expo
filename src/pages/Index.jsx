@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Camera } from 'expo-camera';
 import * as tf from '@tensorflow/tfjs';
 import * as cocossd from '@tensorflow-models/coco-ssd';
 import { Button } from "@/components/ui/button"
@@ -6,16 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom';
-import { Camera, CameraOff, RefreshCw, Play, Square, Mic } from 'lucide-react';
+import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setDetectedObjects, setVideoStatus, setDetectionStatus } from '../redux/actions';
 
 const Index = () => {
+  const [hasPermission, setHasPermission] = useState(null);
+  const [cameraType, setCameraType] = useState(Camera.Constants.Type.back);
   const [model, setModel] = useState(null);
-  const [facingMode, setFacingMode] = useState('environment');
   const [isListening, setIsListening] = useState(false);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const cameraRef = useRef(null);
   const { toast } = useToast()
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -23,6 +24,13 @@ const Index = () => {
   const detectedObjects = useSelector(state => state.objectDetection.detectedObjects);
   const isVideoStarted = useSelector(state => state.objectDetection.isVideoStarted);
   const isDetectionRunning = useSelector(state => state.objectDetection.isDetectionRunning);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === 'granted');
+    })();
+  }, []);
 
   useEffect(() => {
     const loadModel = async () => {
@@ -43,87 +51,54 @@ const Index = () => {
   }, [toast]);
 
   const startVideo = async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode }
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          dispatch(setVideoStatus(true));
-          toast({
-            title: "Success",
-            description: "Video started successfully.",
-          });
-        }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        toast({
-          title: "Error",
-          description: "Failed to access camera. Please check your camera permissions.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const stopVideo = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-      dispatch(setVideoStatus(false));
-      dispatch(setDetectionStatus(false));
+    if (hasPermission) {
+      dispatch(setVideoStatus(true));
       toast({
-        title: "Video Stopped",
-        description: "Video stream has been stopped.",
+        title: "Success",
+        description: "Video started successfully.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Camera permission not granted.",
+        variant: "destructive",
       });
     }
   };
 
-  const toggleCamera = async () => {
-    stopVideo();
-    setFacingMode(prevMode => prevMode === 'user' ? 'environment' : 'user');
-    await startVideo();
+  const stopVideo = () => {
+    dispatch(setVideoStatus(false));
+    dispatch(setDetectionStatus(false));
+    toast({
+      title: "Video Stopped",
+      description: "Video stream has been stopped.",
+    });
+  };
+
+  const toggleCamera = () => {
+    setCameraType(
+      cameraType === Camera.Constants.Type.back
+        ? Camera.Constants.Type.front
+        : Camera.Constants.Type.back
+    );
   };
 
   const detectObjects = async () => {
-    if (model && videoRef.current && canvasRef.current && isDetectionRunning) {
+    if (model && cameraRef.current && isDetectionRunning) {
       try {
-        if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          canvasRef.current.width = videoRef.current.videoWidth;
-          canvasRef.current.height = videoRef.current.videoHeight;
+        const options = { quality: 0.5, base64: true };
+        const data = await cameraRef.current.takePictureAsync(options);
+        const imageTensor = await tf.browser.fromPixels(data);
+        const predictions = await model.detect(imageTensor);
 
-          const predictions = await model.detect(videoRef.current);
-          const ctx = canvasRef.current.getContext('2d');
-          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          ctx.font = '16px sans-serif';
-          ctx.textBaseline = 'top';
+        const objectCounts = {};
+        predictions.forEach(prediction => {
+          const label = prediction.class;
+          objectCounts[label] = (objectCounts[label] || 0) + 1;
+        });
 
-          const objectCounts = {};
-
-          predictions.forEach(prediction => {
-            const [x, y, width, height] = prediction.bbox;
-            const label = prediction.class;
-
-            ctx.strokeStyle = '#00FFFF';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(x, y, width, height);
-
-            ctx.fillStyle = '#00FFFF';
-            const textWidth = ctx.measureText(label).width;
-            const textHeight = parseInt('16px sans-serif', 10);
-            ctx.fillRect(x, y, textWidth + 4, textHeight + 4);
-
-            ctx.fillStyle = '#000000';
-            ctx.fillText(label, x, y);
-
-            objectCounts[label] = (objectCounts[label] || 0) + 1;
-          });
-
-          dispatch(setDetectedObjects(objectCounts));
-        }
+        dispatch(setDetectedObjects(objectCounts));
+        imageTensor.dispose();
       } catch (error) {
         console.error('Error detecting objects:', error);
         toast({
@@ -137,10 +112,10 @@ const Index = () => {
 
   useEffect(() => {
     let interval;
-    if (videoRef.current && canvasRef.current && model && isVideoStarted && isDetectionRunning) {
+    if (cameraRef.current && model && isVideoStarted && isDetectionRunning) {
       interval = setInterval(() => {
         detectObjects();
-      }, 100);
+      }, 1000); // Detect objects every second
     }
     return () => {
       if (interval) {
@@ -311,6 +286,13 @@ const Index = () => {
     }
   };
 
+  if (hasPermission === null) {
+    return <div>Requesting camera permission...</div>;
+  }
+  if (hasPermission === false) {
+    return <div>No access to camera</div>;
+  }
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Object Detection App</h1>
@@ -322,22 +304,17 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <div className="relative">
-                <video
-                  ref={videoRef}
-                  width="640"
-                  height="480"
-                  className="border border-gray-300"
-                />
-                <canvas
-                  ref={canvasRef}
-                  width="640"
-                  height="480"
-                  className="absolute top-0 left-0"
-                />
+                {isVideoStarted && (
+                  <Camera
+                    ref={cameraRef}
+                    type={cameraType}
+                    style={{ width: '100%', height: 480 }}
+                  />
+                )}
               </div>
               <div className="flex mt-4 space-x-2">
                 <Button onClick={isVideoStarted ? stopVideo : startVideo}>
-                  {isVideoStarted ? <CameraOff className="mr-2 h-4 w-4" /> : <Camera className="mr-2 h-4 w-4" />}
+                  {isVideoStarted ? <CameraOff className="mr-2 h-4 w-4" /> : <CameraIcon className="mr-2 h-4 w-4" />}
                   {isVideoStarted ? "Stop Video" : "Start Video"}
                 </Button>
                 <Button onClick={toggleCamera} disabled={!isVideoStarted}>
