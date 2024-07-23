@@ -3,9 +3,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Home, LogIn } from "lucide-react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
-import Layout from "./layouts/default"; // available: default, navbar, sidebar
+import Layout from "./layouts/default";
 import Index from "./pages/Index.jsx";
 import Login from "./pages/Login.jsx";
+import Callback from "./pages/Callback.jsx";
+
 const queryClient = new QueryClient();
 
 export const navItems = [
@@ -31,6 +33,7 @@ const App = () => {
             <Route path="/" element={<Layout />}>
               <Route index element={<Index />} />
               <Route path="login" element={<Login />} />
+              <Route path="callback" element={<Callback />} />
             </Route>
           </Routes>
         </Router>
