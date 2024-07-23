@@ -46,7 +46,7 @@ const Login = () => {
         title: "Login Successful",
         description: "You have been successfully logged in.",
       });
-      navigate('/');
+      navigate('/', { replace: true }); // Use replace to prevent going back to login
     },
     onError: (error) => {
       toast({

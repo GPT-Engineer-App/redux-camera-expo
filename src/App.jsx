@@ -2,12 +2,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Home, LogIn } from "lucide-react";
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
-import Layout from "./layouts/default"; // available: default, navbar, sidebar
+import { Route, BrowserRouter as Router, Routes, Navigate } from "react-router-dom";
+import Layout from "./layouts/default";
 import Index from "./pages/Index.jsx";
 import Login from "./pages/Login.jsx";
 import { Provider } from 'react-redux';
 import store from './redux/store';
+import { useState, useEffect } from 'react';
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,13 @@ export const navItems = [
 ];
 
 const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    setIsAuthenticated(!!token);
+  }, []);
+
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
@@ -32,10 +40,28 @@ const App = () => {
           <Toaster />
           <Router>
             <Routes>
-              <Route path="/" element={<Layout />}>
+              <Route
+                path="/"
+                element={
+                  isAuthenticated ? (
+                    <Layout />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              >
                 <Route index element={<Index />} />
-                <Route path="login" element={<Login />} />
               </Route>
+              <Route
+                path="/login"
+                element={
+                  isAuthenticated ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <Login />
+                  )
+                }
+              />
             </Routes>
           </Router>
         </TooltipProvider>
