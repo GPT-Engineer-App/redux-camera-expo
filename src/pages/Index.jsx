@@ -6,13 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom';
-import { Camera, CameraOff, RefreshCw } from 'lucide-react';
+import { Camera, CameraOff, RefreshCw, Play, Square, Mic } from 'lucide-react';
 
 const Index = () => {
   const [model, setModel] = useState(null);
   const [detectedObjects, setDetectedObjects] = useState({});
-  const [facingMode, setFacingMode] = useState('environment'); // 'environment' for back camera, 'user' for front camera
+  const [facingMode, setFacingMode] = useState('environment');
   const [isVideoStarted, setIsVideoStarted] = useState(false);
+  const [isDetectionRunning, setIsDetectionRunning] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const { toast } = useToast()
@@ -64,6 +66,7 @@ const Index = () => {
       tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
       setIsVideoStarted(false);
+      setIsDetectionRunning(false);
     }
   };
 
@@ -74,7 +77,7 @@ const Index = () => {
   };
 
   const detectObjects = async () => {
-    if (model && videoRef.current && canvasRef.current) {
+    if (model && videoRef.current && canvasRef.current && isDetectionRunning) {
       try {
         if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
           canvasRef.current.width = videoRef.current.videoWidth;
@@ -122,7 +125,7 @@ const Index = () => {
 
   useEffect(() => {
     let interval;
-    if (videoRef.current && canvasRef.current && model && isVideoStarted) {
+    if (videoRef.current && canvasRef.current && model && isVideoStarted && isDetectionRunning) {
       interval = setInterval(() => {
         detectObjects();
       }, 100);
@@ -132,7 +135,7 @@ const Index = () => {
         clearInterval(interval);
       }
     };
-  }, [model, isVideoStarted]);
+  }, [model, isVideoStarted, isDetectionRunning]);
 
   const { data: detections, isLoading, isError, error } = useQuery({
     queryKey: ['detections'],
@@ -212,6 +215,85 @@ const Index = () => {
     });
   };
 
+  const startDetection = () => {
+    if (isVideoStarted) {
+      setIsDetectionRunning(true);
+      toast({
+        title: "Detection Started",
+        description: "Object detection process has been started.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Please start the video first.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopDetection = () => {
+    setIsDetectionRunning(false);
+    toast({
+      title: "Detection Stopped",
+      description: "Object detection process has been stopped.",
+    });
+  };
+
+  const startListening = () => {
+    setIsListening(true);
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            const transcript = event.results[i][0].transcript.trim().toLowerCase();
+            if (transcript.includes('start video')) {
+              startVideo();
+            } else if (transcript.includes('stop video')) {
+              stopVideo();
+            } else if (transcript.includes('start detection')) {
+              startDetection();
+            } else if (transcript.includes('stop detection')) {
+              stopDetection();
+            }
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        if (isListening) {
+          recognition.start();
+        }
+      };
+
+      recognition.start();
+    } else {
+      toast({
+        title: "Error",
+        description: "Speech recognition is not supported in this browser.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopListening = () => {
+    setIsListening(false);
+    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.stop();
+    }
+  };
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Object Detection App</h1>
@@ -245,7 +327,17 @@ const Index = () => {
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Toggle Camera
                 </Button>
-                <Button onClick={saveDetection} disabled={!isVideoStarted}>Save Detection</Button>
+                <Button onClick={isDetectionRunning ? stopDetection : startDetection} disabled={!isVideoStarted}>
+                  {isDetectionRunning ? <Square className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                  {isDetectionRunning ? "Stop Detection" : "Start Detection"}
+                </Button>
+                <Button onClick={saveDetection} disabled={!isVideoStarted || !isDetectionRunning}>
+                  Save Detection
+                </Button>
+                <Button onClick={isListening ? stopListening : startListening}>
+                  <Mic className="mr-2 h-4 w-4" />
+                  {isListening ? "Stop Listening" : "Start Listening"}
+                </Button>
               </div>
             </CardContent>
           </Card>
