@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -17,6 +17,7 @@ const formSchema = z.object({
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -28,17 +29,23 @@ const Login = () => {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials) => {
-      const response = await fetch('https://backengine-of3g.fly.dev/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-      if (!response.ok) {
-        throw new Error('Login failed');
+      setIsLoading(true);
+      try {
+        const response = await fetch('https://backengine-of3g.fly.dev/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(credentials),
+        });
+        if (!response.ok) {
+          throw new Error('Login failed');
+        }
+        const data = await response.json();
+        return data;
+      } finally {
+        setIsLoading(false);
       }
-      return response.json();
     },
     onSuccess: (data) => {
       localStorage.setItem('token', data.token);
@@ -46,7 +53,7 @@ const Login = () => {
         title: "Login Successful",
         description: "You have been successfully logged in.",
       });
-      navigate('/', { replace: true }); // Use replace to prevent going back to login
+      navigate('/', { replace: true });
     },
     onError: (error) => {
       toast({
@@ -93,8 +100,8 @@ const Login = () => {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? "Logging in..." : "Login"}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
         </Form>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom';
-import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic } from 'lucide-react';
+import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic, LogOut } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setDetectedObjects, setVideoStatus, setDetectionStatus } from '../redux/actions';
 
@@ -284,6 +284,11 @@ const Index = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
+
   if (hasPermission === null) {
     return <div>Requesting camera permission...</div>;
   }
@@ -324,6 +329,10 @@ const Index = () => {
                 <Button onClick={isListening ? stopListening : startListening}>
                   <Mic className="mr-2 h-4 w-4" />
                   {isListening ? "Stop Listening" : "Start Listening"}
+                </Button>
+                <Button onClick={handleLogout} variant="destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
                 </Button>
               </div>
             </CardContent>
