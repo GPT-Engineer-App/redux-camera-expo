@@ -33,8 +33,18 @@ const Index = () => {
 
   const detectObjects = async () => {
     if (model && videoRef.current && canvasRef.current) {
-      const predictions = await model.detect(videoRef.current);
-      const ctx = canvasRef.current.getContext('2d');
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      // Ensure the canvas size matches the video size
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // Draw the current video frame to the canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const predictions = await model.detect(canvas);
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       ctx.font = '16px sans-serif';
       ctx.textBaseline = 'top';
@@ -73,7 +83,7 @@ const Index = () => {
     }
   }, [model]);
 
-  const { data: detections, isLoading, isError, error } = useQuery({
+  const { data: detections, isLoading, isError, refetch } = useQuery({
     queryKey: ['detections'],
     queryFn: async () => {
       const token = localStorage.getItem('token');
@@ -88,20 +98,14 @@ const Index = () => {
       if (response.status === 401) {
         // Token might be expired, redirect to login
         navigate('/login');
-        throw new Error('Unauthorized: Please log in again');
+        throw new Error('Unauthorized');
       }
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
       return response.json();
     },
-    onError: (error) => {
-      toast({
-        title: "Error fetching detections",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    retry: false,
   });
 
   const mutation = useMutation({
@@ -121,7 +125,7 @@ const Index = () => {
       if (response.status === 401) {
         // Token might be expired, redirect to login
         navigate('/login');
-        throw new Error('Unauthorized: Please log in again');
+        throw new Error('Unauthorized');
       }
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -133,6 +137,7 @@ const Index = () => {
         title: "Detection saved",
         description: "The detection has been successfully saved to the server.",
       })
+      refetch(); // Refetch the detections after successful mutation
     },
     onError: (error) => {
       toast({
@@ -166,15 +171,11 @@ const Index = () => {
               <div className="relative">
                 <video
                   ref={videoRef}
-                  width="640"
-                  height="480"
-                  className="border border-gray-300"
+                  className="w-full h-auto border border-gray-300"
                 />
                 <canvas
                   ref={canvasRef}
-                  width="640"
-                  height="480"
-                  className="absolute top-0 left-0"
+                  className="absolute top-0 left-0 w-full h-full"
                 />
               </div>
               <Button onClick={startVideo} className="mt-4">Start Video</Button>
@@ -203,7 +204,7 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               {isLoading && <p>Loading...</p>}
-              {isError && <p>Error fetching detections: {error.message}</p>}
+              {isError && <p>Error fetching detections</p>}
               {detections && (
                 <ul>
                   {detections.slice(0, 5).map((detection) => (
