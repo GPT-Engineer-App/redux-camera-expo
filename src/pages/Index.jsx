@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera } from 'expo-camera';
 import * as tf from '@tensorflow/tfjs';
 import * as cocossd from '@tensorflow-models/coco-ssd';
 import { Button } from "@/components/ui/button"
@@ -13,10 +12,10 @@ import { setDetectedObjects, setVideoStatus, setDetectionStatus } from '../redux
 
 const Index = () => {
   const [hasPermission, setHasPermission] = useState(null);
-  const [cameraType, setCameraType] = useState(Camera.Constants.Type.back);
+  const [cameraType, setCameraType] = useState('environment');
   const [model, setModel] = useState(null);
   const [isListening, setIsListening] = useState(false);
-  const cameraRef = useRef(null);
+  const videoRef = useRef(null);
   const { toast } = useToast()
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -24,13 +23,6 @@ const Index = () => {
   const detectedObjects = useSelector(state => state.objectDetection.detectedObjects);
   const isVideoStarted = useSelector(state => state.objectDetection.isVideoStarted);
   const isDetectionRunning = useSelector(state => state.objectDetection.isDetectionRunning);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
 
   useEffect(() => {
     const loadModel = async () => {
@@ -51,22 +43,34 @@ const Index = () => {
   }, [toast]);
 
   const startVideo = async () => {
-    if (hasPermission) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraType } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
       dispatch(setVideoStatus(true));
+      setHasPermission(true);
       toast({
         title: "Success",
         description: "Video started successfully.",
       });
-    } else {
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setHasPermission(false);
       toast({
         title: "Error",
-        description: "Camera permission not granted.",
+        description: "Camera permission not granted or camera not available.",
         variant: "destructive",
       });
     }
   };
 
   const stopVideo = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
     dispatch(setVideoStatus(false));
     dispatch(setDetectionStatus(false));
     toast({
@@ -76,29 +80,23 @@ const Index = () => {
   };
 
   const toggleCamera = () => {
-    setCameraType(
-      cameraType === Camera.Constants.Type.back
-        ? Camera.Constants.Type.front
-        : Camera.Constants.Type.back
-    );
+    setCameraType(prevType => prevType === 'environment' ? 'user' : 'environment');
+    if (isVideoStarted) {
+      stopVideo();
+      startVideo();
+    }
   };
 
   const detectObjects = async () => {
-    if (model && cameraRef.current && isDetectionRunning) {
+    if (model && videoRef.current && isDetectionRunning) {
       try {
-        const options = { quality: 0.5, base64: true };
-        const data = await cameraRef.current.takePictureAsync(options);
-        const imageTensor = await tf.browser.fromPixels(data);
-        const predictions = await model.detect(imageTensor);
-
+        const predictions = await model.detect(videoRef.current);
         const objectCounts = {};
         predictions.forEach(prediction => {
           const label = prediction.class;
           objectCounts[label] = (objectCounts[label] || 0) + 1;
         });
-
         dispatch(setDetectedObjects(objectCounts));
-        imageTensor.dispose();
       } catch (error) {
         console.error('Error detecting objects:', error);
         toast({
@@ -112,7 +110,7 @@ const Index = () => {
 
   useEffect(() => {
     let interval;
-    if (cameraRef.current && model && isVideoStarted && isDetectionRunning) {
+    if (videoRef.current && model && isVideoStarted && isDetectionRunning) {
       interval = setInterval(() => {
         detectObjects();
       }, 1000); // Detect objects every second
@@ -304,13 +302,11 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <div className="relative">
-                {isVideoStarted && (
-                  <Camera
-                    ref={cameraRef}
-                    type={cameraType}
-                    style={{ width: '100%', height: 480 }}
-                  />
-                )}
+                <video
+                  ref={videoRef}
+                  style={{ width: '100%', height: 480, display: isVideoStarted ? 'block' : 'none' }}
+                  playsInline
+                />
               </div>
               <div className="flex mt-4 space-x-2">
                 <Button onClick={isVideoStarted ? stopVideo : startVideo}>
