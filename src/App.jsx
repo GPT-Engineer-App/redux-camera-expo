@@ -6,6 +6,9 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Layout from "./layouts/default"; // available: default, navbar, sidebar
 import Index from "./pages/Index.jsx";
 import Login from "./pages/Login.jsx";
+import { Provider } from 'react-redux';
+import store from './redux/store';
+
 const queryClient = new QueryClient();
 
 export const navItems = [
@@ -23,19 +26,21 @@ export const navItems = [
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Index />} />
-              <Route path="login" element={<Login />} />
-            </Route>
-          </Routes>
-        </Router>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Router>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Index />} />
+                <Route path="login" element={<Login />} />
+              </Route>
+            </Routes>
+          </Router>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </Provider>
   );
 };
 

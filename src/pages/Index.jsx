@@ -7,18 +7,22 @@ import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom';
 import { Camera, CameraOff, RefreshCw, Play, Square, Mic } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { setDetectedObjects, setVideoStatus, setDetectionStatus } from '../redux/actions';
 
 const Index = () => {
   const [model, setModel] = useState(null);
-  const [detectedObjects, setDetectedObjects] = useState({});
   const [facingMode, setFacingMode] = useState('environment');
-  const [isVideoStarted, setIsVideoStarted] = useState(false);
-  const [isDetectionRunning, setIsDetectionRunning] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const { toast } = useToast()
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const detectedObjects = useSelector(state => state.objectDetection.detectedObjects);
+  const isVideoStarted = useSelector(state => state.objectDetection.isVideoStarted);
+  const isDetectionRunning = useSelector(state => state.objectDetection.isDetectionRunning);
 
   useEffect(() => {
     const loadModel = async () => {
@@ -47,7 +51,7 @@ const Index = () => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
-          setIsVideoStarted(true);
+          dispatch(setVideoStatus(true));
           toast({
             title: "Success",
             description: "Video started successfully.",
@@ -69,8 +73,8 @@ const Index = () => {
       const tracks = videoRef.current.srcObject.getTracks();
       tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
-      setIsVideoStarted(false);
-      setIsDetectionRunning(false);
+      dispatch(setVideoStatus(false));
+      dispatch(setDetectionStatus(false));
       toast({
         title: "Video Stopped",
         description: "Video stream has been stopped.",
@@ -118,7 +122,7 @@ const Index = () => {
             objectCounts[label] = (objectCounts[label] || 0) + 1;
           });
 
-          setDetectedObjects(objectCounts);
+          dispatch(setDetectedObjects(objectCounts));
         }
       } catch (error) {
         console.error('Error detecting objects:', error);
@@ -229,7 +233,7 @@ const Index = () => {
 
   const startDetection = () => {
     if (isVideoStarted) {
-      setIsDetectionRunning(true);
+      dispatch(setDetectionStatus(true));
       toast({
         title: "Detection Started",
         description: "Object detection process has been started.",
@@ -244,7 +248,7 @@ const Index = () => {
   };
 
   const stopDetection = () => {
-    setIsDetectionRunning(false);
+    dispatch(setDetectionStatus(false));
     saveDetection(); // Automatically save detection when stopping
     toast({
       title: "Detection Stopped",
