@@ -4,6 +4,8 @@ import {
   SET_VIDEO_STATUS,
   SET_DETECTION_STATUS,
   SET_TENSORFLOW_SETTINGS,
+  RESET_COUNTS,
+  ADD_TO_HISTORY,
 } from './actions';
 
 const initialState = {
@@ -16,6 +18,7 @@ const initialState = {
     maxDetections: 20,
     enableWebcam: false,
   },
+  detectionHistory: {},
 };
 
 const objectDetectionReducer = (state = initialState, action) => {
@@ -28,6 +31,17 @@ const objectDetectionReducer = (state = initialState, action) => {
       return { ...state, isDetectionRunning: action.payload };
     case SET_TENSORFLOW_SETTINGS:
       return { ...state, tensorFlowSettings: action.payload };
+    case RESET_COUNTS:
+      return { ...state, detectedObjects: {} };
+    case ADD_TO_HISTORY:
+      const date = new Date().toISOString().split('T')[0];
+      return {
+        ...state,
+        detectionHistory: {
+          ...state.detectionHistory,
+          [date]: action.payload,
+        },
+      };
     default:
       return state;
   }

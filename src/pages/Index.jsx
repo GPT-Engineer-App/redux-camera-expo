@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as cocossd from '@tensorflow-models/coco-ssd';
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/components/ui/use-toast"
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic, BarChart2, Settings } from 'lucide-react';
+import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
-import { setDetectedObjects, setVideoStatus, setDetectionStatus } from '../redux/actions';
+import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts } from '../redux/actions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Index = () => {
@@ -20,6 +20,7 @@ const Index = () => {
 
   const [model, setModel] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [objectCounts, setObjectCounts] = useState({});
 
   const isVideoStarted = useSelector((state) => state.objectDetection.isVideoStarted);
   const isDetectionRunning = useSelector((state) => state.objectDetection.isDetectionRunning);
@@ -38,7 +39,6 @@ const Index = () => {
         case 'cocossd':
           loadedModel = await cocossd.load();
           break;
-        // Add cases for other models when implemented
         default:
           loadedModel = await cocossd.load();
       }
@@ -108,23 +108,27 @@ const Index = () => {
         context.font = '16px sans-serif';
         context.textBaseline = 'top';
 
-        filteredPredictions.forEach(prediction => {
+        const newCounts = { ...objectCounts };
+
+        filteredPredictions.forEach((prediction, index) => {
           const [x, y, width, height] = prediction.bbox;
+          const label = `${prediction.class} #${index + 1}`;
+          
           context.strokeStyle = '#00FFFF';
           context.lineWidth = 2;
           context.strokeRect(x, y, width, height);
           context.fillStyle = '#00FFFF';
           context.fillText(
-            `${prediction.class} (${Math.round(prediction.score * 100)}%)`,
+            label,
             x,
             y > 10 ? y - 10 : 10
           );
+
+          newCounts[prediction.class] = (newCounts[prediction.class] || 0) + 1;
         });
 
-        dispatch(setDetectedObjects(filteredPredictions.reduce((acc, obj) => {
-          acc[obj.class] = (acc[obj.class] || 0) + 1;
-          return acc;
-        }, {})));
+        setObjectCounts(newCounts);
+        dispatch(setDetectedObjects(newCounts));
 
         if (isDetectionRunning) {
           requestAnimationFrame(detectFrame);
@@ -137,6 +141,22 @@ const Index = () => {
 
   const stopDetection = () => {
     dispatch(setDetectionStatus(false));
+  };
+
+  const handleReset = () => {
+    dispatch(resetCounts());
+    setObjectCounts({});
+  };
+
+  const handleExportData = () => {
+    const dataStr = JSON.stringify(objectCounts, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = 'object_detection_counts.json';
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
   };
 
   return (
@@ -180,21 +200,29 @@ const Index = () => {
           </Card>
         </div>
         <div className="w-full md:w-1/3">
-          <Card>
+          <Card className="mb-4">
             <CardHeader>
               <CardTitle>Detected Objects</CardTitle>
             </CardHeader>
             <CardContent>
               <ul>
-                {Object.entries(detectedObjects).map(([object, count]) => (
+                {Object.entries(objectCounts).map(([object, count]) => (
                   <li key={object} className="mb-2">
                     {object}: {count}
                   </li>
                 ))}
               </ul>
+              <div className="flex justify-between mt-4">
+                <Button onClick={handleReset} variant="outline">
+                  <RotateCcw className="mr-2 h-4 w-4" /> Reset Counts
+                </Button>
+                <Button onClick={handleExportData} variant="outline">
+                  <Download className="mr-2 h-4 w-4" /> Export Data
+                </Button>
+              </div>
             </CardContent>
           </Card>
-          <Card className="mt-4">
+          <Card className="mb-4">
             <CardHeader>
               <CardTitle>TensorFlow Settings</CardTitle>
             </CardHeader>
@@ -208,16 +236,16 @@ const Index = () => {
               </Link>
             </CardContent>
           </Card>
-          <Card className="mt-4">
+          <Card>
             <CardHeader>
-              <CardTitle>Data Visualization</CardTitle>
+              <CardTitle>Detection History</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="mb-4">View detailed charts and analytics of your detection data.</p>
-              <Link to="/results">
+              <Link to="/history">
                 <Button className="w-full">
                   <BarChart2 className="mr-2 h-4 w-4" />
-                  Go to Results
+                  View History
                 </Button>
               </Link>
             </CardContent>
