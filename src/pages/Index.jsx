@@ -22,6 +22,7 @@ const Index = () => {
   const [model, setModel] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [objectCounts, setObjectCounts] = useState({});
+  const [stream, setStream] = useState(null);
 
   const isVideoStarted = useSelector((state) => state.objectDetection.isVideoStarted);
   const isDetectionRunning = useSelector((state) => state.objectDetection.isDetectionRunning);
@@ -30,6 +31,11 @@ const Index = () => {
 
   useEffect(() => {
     loadModel();
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [tensorFlowSettings.model]);
 
   const loadModel = async () => {
@@ -62,9 +68,10 @@ const Index = () => {
 
   const startVideo = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = newStream;
+        setStream(newStream);
         dispatch(setVideoStatus(true));
       }
     } catch (error) {
@@ -78,13 +85,15 @@ const Index = () => {
   };
 
   const stopVideo = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-      dispatch(setVideoStatus(false));
-      dispatch(setDetectionStatus(false));
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    dispatch(setVideoStatus(false));
+    dispatch(setDetectionStatus(false));
   };
 
   const detectObjects = async () => {
@@ -92,7 +101,7 @@ const Index = () => {
 
     dispatch(setDetectionStatus(true));
     const detectFrame = async () => {
-      if (videoRef.current && canvasRef.current) {
+      if (videoRef.current && canvasRef.current && isDetectionRunning) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
@@ -131,9 +140,7 @@ const Index = () => {
         setObjectCounts(newCounts);
         dispatch(setDetectedObjects(newCounts));
 
-        if (isDetectionRunning) {
-          requestAnimationFrame(detectFrame);
-        }
+        requestAnimationFrame(detectFrame);
       }
     };
 
