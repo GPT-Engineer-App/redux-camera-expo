@@ -3,12 +3,19 @@ import {
   SET_DETECTED_OBJECTS,
   SET_VIDEO_STATUS,
   SET_DETECTION_STATUS,
+  SET_TENSORFLOW_SETTINGS,
 } from './actions';
 
 const initialState = {
   detectedObjects: {},
   isVideoStarted: false,
   isDetectionRunning: false,
+  tensorFlowSettings: {
+    model: 'cocossd',
+    confidenceThreshold: 0.5,
+    maxDetections: 20,
+    enableWebcam: false,
+  },
 };
 
 const objectDetectionReducer = (state = initialState, action) => {
@@ -19,6 +26,8 @@ const objectDetectionReducer = (state = initialState, action) => {
       return { ...state, isVideoStarted: action.payload };
     case SET_DETECTION_STATUS:
       return { ...state, isDetectionRunning: action.payload };
+    case SET_TENSORFLOW_SETTINGS:
+      return { ...state, tensorFlowSettings: action.payload };
     default:
       return state;
   }

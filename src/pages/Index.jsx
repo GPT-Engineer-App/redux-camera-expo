@@ -6,23 +6,208 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router-dom';
-import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic, BarChart2 } from 'lucide-react';
+import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic, BarChart2, Settings } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setDetectedObjects, setVideoStatus, setDetectionStatus } from '../redux/actions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Index = () => {
-  // ... (previous code remains unchanged)
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const { toast } = useToast();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const [model, setModel] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const isVideoStarted = useSelector((state) => state.objectDetection.isVideoStarted);
+  const isDetectionRunning = useSelector((state) => state.objectDetection.isDetectionRunning);
+  const detectedObjects = useSelector((state) => state.objectDetection.detectedObjects);
+  const tensorFlowSettings = useSelector((state) => state.objectDetection.tensorFlowSettings);
+
+  useEffect(() => {
+    loadModel();
+  }, [tensorFlowSettings.model]);
+
+  const loadModel = async () => {
+    setIsLoading(true);
+    try {
+      let loadedModel;
+      switch (tensorFlowSettings.model) {
+        case 'cocossd':
+          loadedModel = await cocossd.load();
+          break;
+        // Add cases for other models when implemented
+        default:
+          loadedModel = await cocossd.load();
+      }
+      setModel(loadedModel);
+      setIsLoading(false);
+      toast({
+        title: "Model Loaded",
+        description: `${tensorFlowSettings.model.toUpperCase()} model loaded successfully.`,
+      });
+    } catch (error) {
+      console.error('Failed to load the model:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load the model. Please try again.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const startVideo = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        dispatch(setVideoStatus(true));
+      }
+    } catch (error) {
+      console.error('Error accessing the camera:', error);
+      toast({
+        title: "Camera Error",
+        description: "Unable to access the camera. Please check your permissions.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopVideo = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+      dispatch(setVideoStatus(false));
+      dispatch(setDetectionStatus(false));
+    }
+  };
+
+  const detectObjects = async () => {
+    if (!model || !videoRef.current) return;
+
+    dispatch(setDetectionStatus(true));
+    const detectFrame = async () => {
+      if (videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+        const predictions = await model.detect(video);
+        const filteredPredictions = predictions.filter(pred => pred.score >= tensorFlowSettings.confidenceThreshold)
+                                               .slice(0, tensorFlowSettings.maxDetections);
+
+        context.font = '16px sans-serif';
+        context.textBaseline = 'top';
+
+        filteredPredictions.forEach(prediction => {
+          const [x, y, width, height] = prediction.bbox;
+          context.strokeStyle = '#00FFFF';
+          context.lineWidth = 2;
+          context.strokeRect(x, y, width, height);
+          context.fillStyle = '#00FFFF';
+          context.fillText(
+            `${prediction.class} (${Math.round(prediction.score * 100)}%)`,
+            x,
+            y > 10 ? y - 10 : 10
+          );
+        });
+
+        dispatch(setDetectedObjects(filteredPredictions.reduce((acc, obj) => {
+          acc[obj.class] = (acc[obj.class] || 0) + 1;
+          return acc;
+        }, {})));
+
+        if (isDetectionRunning) {
+          requestAnimationFrame(detectFrame);
+        }
+      }
+    };
+
+    detectFrame();
+  };
+
+  const stopDetection = () => {
+    dispatch(setDetectionStatus(false));
+  };
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Object Detection App</h1>
       <div className="flex flex-col md:flex-row gap-4">
         <div className="w-full md:w-2/3">
-          {/* ... (previous content remains unchanged) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Camera Feed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  className="w-full h-auto"
+                  autoPlay
+                  playsInline
+                  muted
+                />
+                <canvas
+                  ref={canvasRef}
+                  className="absolute top-0 left-0 w-full h-full"
+                />
+              </div>
+              <div className="flex justify-center mt-4 space-x-2">
+                <Button onClick={startVideo} disabled={isVideoStarted || isLoading}>
+                  <CameraIcon className="mr-2 h-4 w-4" /> Start Camera
+                </Button>
+                <Button onClick={stopVideo} disabled={!isVideoStarted || isLoading}>
+                  <CameraOff className="mr-2 h-4 w-4" /> Stop Camera
+                </Button>
+                <Button onClick={detectObjects} disabled={!isVideoStarted || isDetectionRunning || isLoading}>
+                  <Play className="mr-2 h-4 w-4" /> Start Detection
+                </Button>
+                <Button onClick={stopDetection} disabled={!isDetectionRunning || isLoading}>
+                  <Square className="mr-2 h-4 w-4" /> Stop Detection
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <div className="w-full md:w-1/3">
-          {/* ... (previous content remains unchanged) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Detected Objects</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul>
+                {Object.entries(detectedObjects).map(([object, count]) => (
+                  <li key={object} className="mb-2">
+                    {object}: {count}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>TensorFlow Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4">Configure detection parameters and model settings.</p>
+              <Link to="/tensorflow-settings">
+                <Button className="w-full">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Go to Settings
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
           <Card className="mt-4">
             <CardHeader>
               <CardTitle>Data Visualization</CardTitle>
@@ -39,7 +224,14 @@ const Index = () => {
           </Card>
         </div>
       </div>
-      {/* ... (previous content remains unchanged) */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg flex items-center">
+            <RefreshCw className="animate-spin mr-2" />
+            Loading model...
+          </div>
+        </div>
+      )}
     </div>
   );
 };
