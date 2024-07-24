@@ -58,11 +58,19 @@ const Index = () => {
     } catch (error) {
       console.error('Error accessing camera:', error);
       setHasPermission(false);
-      toast({
-        title: "Error",
-        description: "Camera permission not granted or camera not available.",
-        variant: "destructive",
-      });
+      if (error.name === 'NotAllowedError') {
+        toast({
+          title: "Permission Denied",
+          description: "Camera access was denied. Please grant permission in your browser settings.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "An error occurred while accessing the camera. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -135,9 +143,8 @@ const Index = () => {
         }
       });
       if (response.status === 401) {
-        localStorage.removeItem('token');
-        navigate('/login');
-        throw new Error('Unauthorized: Please log in again');
+        await refreshToken();
+        return refetch();
       }
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -169,9 +176,8 @@ const Index = () => {
         body: JSON.stringify(newDetection),
       });
       if (response.status === 401) {
-        localStorage.removeItem('token');
-        navigate('/login');
-        throw new Error('Unauthorized: Please log in again');
+        await refreshToken();
+        return mutation.mutate(newDetection);
       }
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -193,6 +199,37 @@ const Index = () => {
       });
     },
   });
+
+  const refreshToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        throw new Error('No refresh token found');
+      }
+      const response = await fetch('https://backengine-of3g.fly.dev/api/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to refresh token');
+      }
+      const data = await response.json();
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('refreshToken', data.refreshToken);
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      logout();
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    navigate('/login');
+  };
 
   const saveDetection = () => {
     Object.entries(detectedObjects).forEach(([objectType, count]) => {
@@ -288,7 +325,7 @@ const Index = () => {
     return <div>Requesting camera permission...</div>;
   }
   if (hasPermission === false) {
-    return <div>No access to camera</div>;
+    return <div>No access to camera. Please check your browser settings and grant permission.</div>;
   }
 
   return (
