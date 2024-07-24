@@ -47,7 +47,8 @@ const Login = () => {
         title: "Login Successful",
         description: "You have been successfully logged in.",
       });
-      navigate('/');
+      // Trigger a page reload to update the authentication state
+      window.location.href = '/';
     },
     onError: (error) => {
       toast({
