@@ -45,16 +45,22 @@ const Index = () => {
 
   const startVideo = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraType } });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: cameraType,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        await videoRef.current.play();
       }
       dispatch(setVideoStatus(true));
       setHasPermission(true);
       toast({
         title: "Success",
-        description: "Video started successfully.",
+        description: "Camera started successfully.",
       });
     } catch (error) {
       console.error('Error accessing camera:', error);
@@ -65,10 +71,16 @@ const Index = () => {
           description: "Camera access was denied. Please grant permission in your browser settings.",
           variant: "destructive",
         });
+      } else if (error.name === 'NotFoundError') {
+        toast({
+          title: "Camera Not Found",
+          description: "No camera device is found. Please ensure your device has a camera and it's not being used by another application.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Error",
-          description: "An error occurred while accessing the camera. Please try again.",
+          description: `An error occurred while accessing the camera: ${error.message}`,
           variant: "destructive",
         });
       }
@@ -335,13 +347,6 @@ const Index = () => {
       recognition.stop();
     }
   };
-
-  if (hasPermission === null) {
-    return <div>Requesting camera permission...</div>;
-  }
-  if (hasPermission === false) {
-    return <div>No access to camera. Please check your browser settings and grant permission.</div>;
-  }
 
   return (
     <div className="container mx-auto p-4">
