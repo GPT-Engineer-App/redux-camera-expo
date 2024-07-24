@@ -41,14 +41,13 @@ const Login = () => {
       return response.json();
     },
     onSuccess: (data) => {
-      localStorage.setItem('token', data.token);
+      localStorage.setItem('token', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       toast({
         title: "Login Successful",
         description: "You have been successfully logged in.",
       });
-      // Force a page reload to trigger the App component to re-render
-      window.location.href = '/';
+      navigate('/');
     },
     onError: (error) => {
       toast({
