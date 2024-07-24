@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download, Save } from 'lucide-react';
+import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download, Save, Repeat } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts, addToHistory } from '../redux/actions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -23,6 +23,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [objectCounts, setObjectCounts] = useState({});
   const [stream, setStream] = useState(null);
+  const [facingMode, setFacingMode] = useState('environment'); // 'environment' for back camera, 'user' for front camera
 
   const isVideoStarted = useSelector((state) => state.objectDetection.isVideoStarted);
   const isDetectionRunning = useSelector((state) => state.objectDetection.isDetectionRunning);
@@ -68,7 +69,10 @@ const Index = () => {
 
   const startVideo = async () => {
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const constraints = {
+        video: { facingMode: facingMode }
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
         setStream(newStream);
@@ -94,6 +98,14 @@ const Index = () => {
     }
     dispatch(setVideoStatus(false));
     dispatch(setDetectionStatus(false));
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prevMode => prevMode === 'user' ? 'environment' : 'user');
+    if (isVideoStarted) {
+      stopVideo();
+      startVideo();
+    }
   };
 
   const detectObjects = async () => {
@@ -240,6 +252,9 @@ const Index = () => {
                 </Button>
                 <Button onClick={stopVideo} disabled={!isVideoStarted || isLoading}>
                   <CameraOff className="mr-2 h-4 w-4" /> Stop Camera
+                </Button>
+                <Button onClick={toggleCamera} disabled={!isVideoStarted || isLoading}>
+                  <Repeat className="mr-2 h-4 w-4" /> Toggle Camera
                 </Button>
                 <Button onClick={detectObjects} disabled={!isVideoStarted || isDetectionRunning || isLoading}>
                   <Play className="mr-2 h-4 w-4" /> Start Detection
