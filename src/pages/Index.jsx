@@ -6,15 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom';
-import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic } from 'lucide-react';
+import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic, BarChart2 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setDetectedObjects, setVideoStatus, setDetectionStatus } from '../redux/actions';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Index = () => {
   const [hasPermission, setHasPermission] = useState(null);
   const [cameraType, setCameraType] = useState('environment');
   const [model, setModel] = useState(null);
   const [isListening, setIsListening] = useState(false);
+  const [detectionStats, setDetectionStats] = useState([]);
   const videoRef = useRef(null);
   const { toast } = useToast()
   const navigate = useNavigate();
@@ -29,8 +31,14 @@ const Index = () => {
     const loadModel = async () => {
       try {
         await tf.ready();
-        const loadedModel = await cocossd.load();
+        const loadedModel = await cocossd.load({
+          base: 'mobilenet_v2'
+        });
         setModel(loadedModel);
+        toast({
+          title: "Model Loaded",
+          description: "Object detection model has been loaded successfully.",
+        });
       } catch (error) {
         console.error('Error loading model:', error);
         toast({
@@ -118,6 +126,7 @@ const Index = () => {
           objectCounts[label] = (objectCounts[label] || 0) + 1;
         });
         dispatch(setDetectedObjects(objectCounts));
+        updateDetectionStats(objectCounts);
       } catch (error) {
         console.error('Error detecting objects:', error);
         toast({
@@ -127,6 +136,30 @@ const Index = () => {
         });
       }
     }
+  };
+
+  const updateDetectionStats = (newDetections) => {
+    setDetectionStats(prevStats => {
+      const updatedStats = [...prevStats];
+      const timestamp = new Date().toLocaleTimeString();
+      
+      Object.entries(newDetections).forEach(([objectType, count]) => {
+        const existingStatIndex = updatedStats.findIndex(stat => stat.name === objectType);
+        if (existingStatIndex !== -1) {
+          updatedStats[existingStatIndex] = {
+            ...updatedStats[existingStatIndex],
+            [timestamp]: count,
+          };
+        } else {
+          updatedStats.push({
+            name: objectType,
+            [timestamp]: count,
+          });
+        }
+      });
+      
+      return updatedStats;
+    });
   };
 
   useEffect(() => {
@@ -421,6 +454,25 @@ const Index = () => {
           </Card>
         </div>
       </div>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Detection Statistics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={detectionStats}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              {Object.keys(detectionStats[0] || {}).filter(key => key !== 'name').map((timestamp, index) => (
+                <Bar key={timestamp} dataKey={timestamp} fill={`hsl(${index * 30}, 70%, 50%)`} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 };
