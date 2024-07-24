@@ -8,18 +8,26 @@ const History = () => {
   const { toast } = useToast();
 
   const fetchDetectionHistory = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
     const response = await fetch('https://backengine-of3g.fly.dev/api/collections/detectionData/records', {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${token}`,
       },
     });
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Unauthorized: Please log in again');
+      }
       throw new Error('Failed to fetch detection history');
     }
     return response.json();
   };
 
-  const { data: detectionHistory, isLoading, isError } = useQuery({
+  const { data: detectionHistory, isLoading, isError, error } = useQuery({
     queryKey: ['detectionHistory'],
     queryFn: fetchDetectionHistory,
   });
@@ -31,7 +39,7 @@ const History = () => {
   if (isError) {
     toast({
       title: "Error",
-      description: "Failed to fetch detection history",
+      description: error.message || "Failed to fetch detection history",
       variant: "destructive",
     });
     return <div>Error fetching detection history</div>;

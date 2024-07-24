@@ -162,15 +162,23 @@ const Index = () => {
 
   const saveDataMutation = useMutation({
     mutationFn: async (data) => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch('https://backengine-of3g.fly.dev/api/collections/detectionData/records', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ counts: data, timestamp: new Date().toISOString() }),
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized: Please log in again');
+        }
         throw new Error('Failed to save data');
       }
       return response.json();
@@ -186,7 +194,7 @@ const Index = () => {
     onError: (error) => {
       toast({
         title: "Error",
-        description: `Failed to save data: ${error.message}`,
+        description: error.message || "Failed to save data",
         variant: "destructive",
       });
     },
