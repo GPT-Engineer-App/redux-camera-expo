@@ -9,7 +9,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download, Save, Repeat } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts, addToHistory } from '../redux/actions';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Index = () => {
   const videoRef = useRef(null);
