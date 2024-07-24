@@ -3,91 +3,59 @@ import * as tf from '@tensorflow/tfjs';
 import * as cocossd from '@tensorflow-models/coco-ssd';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import { Link } from 'react-router-dom';
-import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download, Save, Repeat } from 'lucide-react';
-import { useSelector, useDispatch } from 'react-redux';
-import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts } from '../redux/actions';
+import { CameraIcon, CameraOff, Play, Square, RefreshCw } from 'lucide-react';
 
 const Index = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const { toast } = useToast();
-  const dispatch = useDispatch();
 
   const [model, setModel] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVideoStarted, setIsVideoStarted] = useState(false);
+  const [isDetectionRunning, setIsDetectionRunning] = useState(false);
   const [objectCounts, setObjectCounts] = useState({});
-  const [stream, setStream] = useState(null);
-
-  const isVideoStarted = useSelector((state) => state.objectDetection.isVideoStarted);
-  const isDetectionRunning = useSelector((state) => state.objectDetection.isDetectionRunning);
-  const tensorFlowSettings = useSelector((state) => state.objectDetection.tensorFlowSettings);
 
   useEffect(() => {
     loadModel();
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
   }, []);
 
   const loadModel = async () => {
-    setIsLoading(true);
     try {
       const loadedModel = await cocossd.load();
       setModel(loadedModel);
       setIsLoading(false);
-      toast({
-        title: "Model Loaded",
-        description: "COCO-SSD model loaded successfully.",
-      });
     } catch (error) {
       console.error('Failed to load the model:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load the model. Please try again.",
-        variant: "destructive",
-      });
       setIsLoading(false);
     }
   };
 
   const startVideo = async () => {
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-        setStream(newStream);
-        dispatch(setVideoStatus(true));
+        videoRef.current.srcObject = stream;
+        setIsVideoStarted(true);
       }
     } catch (error) {
       console.error('Error accessing the camera:', error);
-      toast({
-        title: "Camera Error",
-        description: "Unable to access the camera. Please check your permissions.",
-        variant: "destructive",
-      });
     }
   };
 
   const stopVideo = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    if (videoRef.current) {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
+      setIsVideoStarted(false);
+      setIsDetectionRunning(false);
     }
-    dispatch(setVideoStatus(false));
-    dispatch(setDetectionStatus(false));
   };
 
   const detectObjects = async () => {
     if (!model || !videoRef.current) return;
 
-    dispatch(setDetectionStatus(true));
+    setIsDetectionRunning(true);
     const detectFrame = async () => {
       if (videoRef.current && canvasRef.current && isDetectionRunning) {
         const video = videoRef.current;
@@ -100,12 +68,9 @@ const Index = () => {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
         const predictions = await model.detect(video);
-        const filteredPredictions = predictions.filter(pred => pred.score >= tensorFlowSettings.confidenceThreshold)
-                                               .slice(0, tensorFlowSettings.maxDetections);
-
         const newCounts = {};
 
-        filteredPredictions.forEach((prediction) => {
+        predictions.forEach((prediction) => {
           const [x, y, width, height] = prediction.bbox;
           
           context.strokeStyle = '#00FFFF';
@@ -120,8 +85,6 @@ const Index = () => {
         });
 
         setObjectCounts(newCounts);
-        dispatch(setDetectedObjects(newCounts));
-
         requestAnimationFrame(detectFrame);
       }
     };
@@ -130,102 +93,60 @@ const Index = () => {
   };
 
   const stopDetection = () => {
-    dispatch(setDetectionStatus(false));
-  };
-
-  const handleReset = () => {
-    dispatch(resetCounts());
-    setObjectCounts({});
+    setIsDetectionRunning(false);
   };
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Object Detection App</h1>
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="w-full md:w-2/3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Camera Feed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <video
-                  ref={videoRef}
-                  className="w-full h-auto"
-                  autoPlay
-                  playsInline
-                  muted
-                />
-                <canvas
-                  ref={canvasRef}
-                  className="absolute top-0 left-0 w-full h-full"
-                />
-              </div>
-              <div className="flex justify-center mt-4 space-x-2">
-                <Button onClick={startVideo} disabled={isVideoStarted || isLoading}>
-                  <CameraIcon className="mr-2 h-4 w-4" /> Start Camera
-                </Button>
-                <Button onClick={stopVideo} disabled={!isVideoStarted || isLoading}>
-                  <CameraOff className="mr-2 h-4 w-4" /> Stop Camera
-                </Button>
-                <Button onClick={detectObjects} disabled={!isVideoStarted || isDetectionRunning || isLoading}>
-                  <Play className="mr-2 h-4 w-4" /> Start Detection
-                </Button>
-                <Button onClick={stopDetection} disabled={!isDetectionRunning || isLoading}>
-                  <Square className="mr-2 h-4 w-4" /> Stop Detection
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="w-full md:w-1/3">
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle>Detected Objects</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul>
-                {Object.entries(objectCounts).map(([object, count]) => (
-                  <li key={object} className="mb-2">
-                    {object}: {count}
-                  </li>
-                ))}
-              </ul>
-              <div className="flex justify-center mt-4">
-                <Button onClick={handleReset} variant="outline">
-                  <RotateCcw className="mr-2 h-4 w-4" /> Reset Counts
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle>TensorFlow Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Link to="/tensorflow-settings">
-                <Button className="w-full">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Go to Settings
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Detection History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Link to="/history">
-                <Button className="w-full">
-                  <BarChart2 className="mr-2 h-4 w-4" />
-                  View History
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Camera Feed</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <video
+              ref={videoRef}
+              className="w-full h-auto"
+              autoPlay
+              playsInline
+              muted
+            />
+            <canvas
+              ref={canvasRef}
+              className="absolute top-0 left-0 w-full h-full"
+            />
+          </div>
+          <div className="flex justify-center mt-4 space-x-2">
+            <Button onClick={startVideo} disabled={isVideoStarted || isLoading}>
+              <CameraIcon className="mr-2 h-4 w-4" /> Start Camera
+            </Button>
+            <Button onClick={stopVideo} disabled={!isVideoStarted || isLoading}>
+              <CameraOff className="mr-2 h-4 w-4" /> Stop Camera
+            </Button>
+            <Button onClick={detectObjects} disabled={!isVideoStarted || isDetectionRunning || isLoading}>
+              <Play className="mr-2 h-4 w-4" /> Start Detection
+            </Button>
+            <Button onClick={stopDetection} disabled={!isDetectionRunning || isLoading}>
+              <Square className="mr-2 h-4 w-4" /> Stop Detection
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Detected Objects</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul>
+            {Object.entries(objectCounts).map(([object, count]) => (
+              <li key={object} className="mb-2">
+                {object}: {count}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
       {isLoading && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-4 rounded-lg flex items-center">
