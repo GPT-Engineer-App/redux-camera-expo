@@ -4,29 +4,24 @@ import * as cocossd from '@tensorflow-models/coco-ssd';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download, Save, Repeat } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
-import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts, addToHistory } from '../redux/actions';
+import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts } from '../redux/actions';
 
 const Index = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const { toast } = useToast();
   const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [model, setModel] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [objectCounts, setObjectCounts] = useState({});
   const [stream, setStream] = useState(null);
-  const [facingMode, setFacingMode] = useState('environment');
 
   const isVideoStarted = useSelector((state) => state.objectDetection.isVideoStarted);
   const isDetectionRunning = useSelector((state) => state.objectDetection.isDetectionRunning);
-  const detectedObjects = useSelector((state) => state.objectDetection.detectedObjects);
   const tensorFlowSettings = useSelector((state) => state.objectDetection.tensorFlowSettings);
 
   useEffect(() => {
@@ -36,7 +31,7 @@ const Index = () => {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [tensorFlowSettings.model]);
+  }, []);
 
   const loadModel = async () => {
     setIsLoading(true);
@@ -61,10 +56,7 @@ const Index = () => {
 
   const startVideo = async () => {
     try {
-      const constraints = {
-        video: { facingMode: facingMode }
-      };
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
         setStream(newStream);
@@ -92,14 +84,6 @@ const Index = () => {
     dispatch(setDetectionStatus(false));
   };
 
-  const toggleCamera = () => {
-    setFacingMode(prevMode => prevMode === 'user' ? 'environment' : 'user');
-    if (isVideoStarted) {
-      stopVideo();
-      startVideo();
-    }
-  };
-
   const detectObjects = async () => {
     if (!model || !videoRef.current) return;
 
@@ -123,19 +107,14 @@ const Index = () => {
 
         filteredPredictions.forEach((prediction) => {
           const [x, y, width, height] = prediction.bbox;
-          const label = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
           
           context.strokeStyle = '#00FFFF';
           context.lineWidth = 2;
           context.strokeRect(x, y, width, height);
           
-          context.fillStyle = 'rgba(0, 255, 255, 0.3)';
-          const textWidth = context.measureText(label).width;
-          context.fillRect(x, y > 10 ? y - 20 : 10, textWidth + 4, 20);
-          
-          context.fillStyle = '#000000';
+          context.fillStyle = '#00FFFF';
           context.font = '16px sans-serif';
-          context.fillText(label, x + 2, y > 10 ? y - 5 : 25);
+          context.fillText(prediction.class, x, y > 10 ? y - 5 : 10);
 
           newCounts[prediction.class] = (newCounts[prediction.class] || 0) + 1;
         });
@@ -157,61 +136,6 @@ const Index = () => {
   const handleReset = () => {
     dispatch(resetCounts());
     setObjectCounts({});
-  };
-
-  const handleExportData = () => {
-    const dataStr = JSON.stringify(objectCounts, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = 'object_detection_counts.json';
-
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  };
-
-  const saveDataMutation = useMutation({
-    mutationFn: async (data) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch('https://backengine-of3g.fly.dev/api/collections/detectionData/records', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ counts: data, timestamp: new Date().toISOString() }),
-      });
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Unauthorized: Please log in again');
-        }
-        throw new Error('Failed to save data');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Data Saved",
-        description: "Detection data has been saved successfully.",
-      });
-      queryClient.invalidateQueries('detectionHistory');
-      dispatch(addToHistory(objectCounts));
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save data",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSaveData = () => {
-    saveDataMutation.mutate(objectCounts);
   };
 
   return (
@@ -244,9 +168,6 @@ const Index = () => {
                 <Button onClick={stopVideo} disabled={!isVideoStarted || isLoading}>
                   <CameraOff className="mr-2 h-4 w-4" /> Stop Camera
                 </Button>
-                <Button onClick={toggleCamera} disabled={!isVideoStarted || isLoading}>
-                  <Repeat className="mr-2 h-4 w-4" /> Toggle Camera
-                </Button>
                 <Button onClick={detectObjects} disabled={!isVideoStarted || isDetectionRunning || isLoading}>
                   <Play className="mr-2 h-4 w-4" /> Start Detection
                 </Button>
@@ -270,15 +191,9 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-between mt-4">
+              <div className="flex justify-center mt-4">
                 <Button onClick={handleReset} variant="outline">
                   <RotateCcw className="mr-2 h-4 w-4" /> Reset Counts
-                </Button>
-                <Button onClick={handleExportData} variant="outline">
-                  <Download className="mr-2 h-4 w-4" /> Export Data
-                </Button>
-                <Button onClick={handleSaveData} variant="outline" disabled={saveDataMutation.isPending}>
-                  <Save className="mr-2 h-4 w-4" /> Save Data
                 </Button>
               </div>
             </CardContent>
@@ -288,7 +203,6 @@ const Index = () => {
               <CardTitle>TensorFlow Settings</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">Configure detection parameters and model settings.</p>
               <Link to="/tensorflow-settings">
                 <Button className="w-full">
                   <Settings className="mr-2 h-4 w-4" />
@@ -302,7 +216,6 @@ const Index = () => {
               <CardTitle>Detection History</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-4">View detailed charts and analytics of your detection data.</p>
               <Link to="/history">
                 <Button className="w-full">
                   <BarChart2 className="mr-2 h-4 w-4" />
