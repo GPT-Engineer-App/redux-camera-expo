@@ -42,8 +42,7 @@ const Login = () => {
     },
     onSuccess: (data) => {
       localStorage.setItem('token', data.token);
-      localStorage.setItem('userId', 'c50cb734-1f41-4a96-a557-709280994b0f');
-      localStorage.setItem('apiKey', 'd93b7f10a6d3c85b5af24e33ff401a97');
+      localStorage.setItem('refreshToken', data.refreshToken);
       toast({
         title: "Login Successful",
         description: "You have been successfully logged in.",
