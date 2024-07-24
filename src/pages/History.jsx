@@ -1,14 +1,45 @@
 import React from 'react';
-import { useSelector } from 'react-redux';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useToast } from "@/components/ui/use-toast";
 
 const History = () => {
-  const detectionHistory = useSelector((state) => state.objectDetection.detectionHistory);
+  const { toast } = useToast();
 
-  const chartData = Object.entries(detectionHistory).map(([date, counts]) => ({
-    date,
-    ...counts,
+  const fetchDetectionHistory = async () => {
+    const response = await fetch('https://backengine-of3g.fly.dev/api/collections/detectionData/records', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch detection history');
+    }
+    return response.json();
+  };
+
+  const { data: detectionHistory, isLoading, isError } = useQuery({
+    queryKey: ['detectionHistory'],
+    queryFn: fetchDetectionHistory,
+  });
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (isError) {
+    toast({
+      title: "Error",
+      description: "Failed to fetch detection history",
+      variant: "destructive",
+    });
+    return <div>Error fetching detection history</div>;
+  }
+
+  const processedData = detectionHistory.items.map(item => ({
+    date: new Date(item.timestamp).toLocaleDateString(),
+    ...item.counts,
   }));
 
   return (
@@ -20,13 +51,13 @@ const History = () => {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={chartData}>
+            <BarChart data={processedData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
               <Legend />
-              {Object.keys(chartData[0] || {}).filter(key => key !== 'date').map((key, index) => (
+              {Object.keys(processedData[0] || {}).filter(key => key !== 'date').map((key, index) => (
                 <Bar key={key} dataKey={key} fill={`hsl(${index * 30}, 70%, 50%)`} />
               ))}
             </BarChart>

@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
-import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download } from 'lucide-react';
+import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, BarChart2, Settings, RotateCcw, Download, Save } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
-import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts } from '../redux/actions';
+import { setDetectedObjects, setVideoStatus, setDetectionStatus, resetCounts, addToHistory } from '../redux/actions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Index = () => {
@@ -17,6 +17,7 @@ const Index = () => {
   const { toast } = useToast();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [model, setModel] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -159,6 +160,42 @@ const Index = () => {
     linkElement.click();
   };
 
+  const saveDataMutation = useMutation({
+    mutationFn: async (data) => {
+      const response = await fetch('https://backengine-of3g.fly.dev/api/collections/detectionData/records', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ counts: data, timestamp: new Date().toISOString() }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to save data');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Data Saved",
+        description: "Detection data has been saved successfully.",
+      });
+      queryClient.invalidateQueries('detectionHistory');
+      dispatch(addToHistory(objectCounts));
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to save data: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveData = () => {
+    saveDataMutation.mutate(objectCounts);
+  };
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-4">Object Detection App</h1>
@@ -218,6 +255,9 @@ const Index = () => {
                 </Button>
                 <Button onClick={handleExportData} variant="outline">
                   <Download className="mr-2 h-4 w-4" /> Export Data
+                </Button>
+                <Button onClick={handleSaveData} variant="outline" disabled={saveDataMutation.isPending}>
+                  <Save className="mr-2 h-4 w-4" /> Save Data
                 </Button>
               </div>
             </CardContent>

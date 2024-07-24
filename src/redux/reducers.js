@@ -18,7 +18,7 @@ const initialState = {
     maxDetections: 20,
     enableWebcam: false,
   },
-  detectionHistory: {},
+  detectionHistory: [],
 };
 
 const objectDetectionReducer = (state = initialState, action) => {
@@ -34,13 +34,12 @@ const objectDetectionReducer = (state = initialState, action) => {
     case RESET_COUNTS:
       return { ...state, detectedObjects: {} };
     case ADD_TO_HISTORY:
-      const date = new Date().toISOString().split('T')[0];
       return {
         ...state,
-        detectionHistory: {
+        detectionHistory: [
           ...state.detectionHistory,
-          [date]: action.payload,
-        },
+          { timestamp: new Date().toISOString(), counts: action.payload },
+        ],
       };
     default:
       return state;
