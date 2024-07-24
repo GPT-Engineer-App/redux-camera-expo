@@ -41,19 +41,12 @@ const Index = () => {
   const loadModel = async () => {
     setIsLoading(true);
     try {
-      let loadedModel;
-      switch (tensorFlowSettings.model) {
-        case 'cocossd':
-          loadedModel = await cocossd.load();
-          break;
-        default:
-          loadedModel = await cocossd.load();
-      }
+      const loadedModel = await cocossd.load();
       setModel(loadedModel);
       setIsLoading(false);
       toast({
         title: "Model Loaded",
-        description: `${tensorFlowSettings.model.toUpperCase()} model loaded successfully.`,
+        description: "COCO-SSD model loaded successfully.",
       });
     } catch (error) {
       console.error('Failed to load the model:', error);
@@ -120,47 +113,29 @@ const Index = () => {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
 
-        // Draw the video frame on the canvas
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
-        // Perform object detection
         const predictions = await model.detect(video);
         const filteredPredictions = predictions.filter(pred => pred.score >= tensorFlowSettings.confidenceThreshold)
                                                .slice(0, tensorFlowSettings.maxDetections);
 
-        // Clear previous drawings
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Redraw the video frame
-        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        const newCounts = {};
 
-        // Set styles for the bounding boxes and labels
-        context.strokeStyle = '#00FFFF';
-        context.lineWidth = 2;
-        context.fillStyle = '#00FFFF';
-        context.font = '16px sans-serif';
-
-        const newCounts = { ...objectCounts };
-
-        filteredPredictions.forEach((prediction, index) => {
+        filteredPredictions.forEach((prediction) => {
           const [x, y, width, height] = prediction.bbox;
           const label = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
           
-          // Draw bounding box
+          context.strokeStyle = '#00FFFF';
+          context.lineWidth = 2;
           context.strokeRect(x, y, width, height);
           
-          // Draw label background
-          const textWidth = context.measureText(label).width;
           context.fillStyle = 'rgba(0, 255, 255, 0.3)';
+          const textWidth = context.measureText(label).width;
           context.fillRect(x, y > 10 ? y - 20 : 10, textWidth + 4, 20);
           
-          // Draw label text
           context.fillStyle = '#000000';
-          context.fillText(
-            label,
-            x + 2,
-            y > 10 ? y - 5 : 25
-          );
+          context.font = '16px sans-serif';
+          context.fillText(label, x + 2, y > 10 ? y - 5 : 25);
 
           newCounts[prediction.class] = (newCounts[prediction.class] || 0) + 1;
         });
