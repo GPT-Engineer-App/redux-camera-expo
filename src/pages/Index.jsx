@@ -23,7 +23,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [objectCounts, setObjectCounts] = useState({});
   const [stream, setStream] = useState(null);
-  const [facingMode, setFacingMode] = useState('environment'); // 'environment' for back camera, 'user' for front camera
+  const [facingMode, setFacingMode] = useState('environment');
 
   const isVideoStarted = useSelector((state) => state.objectDetection.isVideoStarted);
   const isDetectionRunning = useSelector((state) => state.objectDetection.isDetectionRunning);
@@ -121,29 +121,46 @@ const Index = () => {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
 
+        // Draw the video frame on the canvas
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
+        // Perform object detection
         const predictions = await model.detect(video);
         const filteredPredictions = predictions.filter(pred => pred.score >= tensorFlowSettings.confidenceThreshold)
                                                .slice(0, tensorFlowSettings.maxDetections);
 
+        // Clear previous drawings
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Redraw the video frame
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+        // Set styles for the bounding boxes and labels
+        context.strokeStyle = '#00FFFF';
+        context.lineWidth = 2;
+        context.fillStyle = '#00FFFF';
         context.font = '16px sans-serif';
-        context.textBaseline = 'top';
 
         const newCounts = { ...objectCounts };
 
         filteredPredictions.forEach((prediction, index) => {
           const [x, y, width, height] = prediction.bbox;
-          const label = `${prediction.class} #${index + 1}`;
+          const label = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
           
-          context.strokeStyle = '#00FFFF';
-          context.lineWidth = 2;
+          // Draw bounding box
           context.strokeRect(x, y, width, height);
-          context.fillStyle = '#00FFFF';
+          
+          // Draw label background
+          const textWidth = context.measureText(label).width;
+          context.fillStyle = 'rgba(0, 255, 255, 0.3)';
+          context.fillRect(x, y > 10 ? y - 20 : 10, textWidth + 4, 20);
+          
+          // Draw label text
+          context.fillStyle = '#000000';
           context.fillText(
             label,
-            x,
-            y > 10 ? y - 10 : 10
+            x + 2,
+            y > 10 ? y - 5 : 25
           );
 
           newCounts[prediction.class] = (newCounts[prediction.class] || 0) + 1;
