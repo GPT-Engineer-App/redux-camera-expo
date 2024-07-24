@@ -143,8 +143,12 @@ const Index = () => {
         }
       });
       if (response.status === 401) {
-        await refreshToken();
-        return refetch();
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          return refetch();
+        } else {
+          throw new Error('Failed to refresh token');
+        }
       }
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -158,6 +162,9 @@ const Index = () => {
         description: error.message,
         variant: "destructive",
       });
+      if (error.message === 'Failed to refresh token') {
+        logout();
+      }
     }
   });
 
@@ -176,8 +183,12 @@ const Index = () => {
         body: JSON.stringify(newDetection),
       });
       if (response.status === 401) {
-        await refreshToken();
-        return mutation.mutate(newDetection);
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          return mutation.mutate(newDetection);
+        } else {
+          throw new Error('Failed to refresh token');
+        }
       }
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -197,6 +208,9 @@ const Index = () => {
         description: `Failed to save detection: ${error.message}`,
         variant: "destructive",
       });
+      if (error.message === 'Failed to refresh token') {
+        logout();
+      }
     },
   });
 
@@ -219,9 +233,10 @@ const Index = () => {
       const data = await response.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('refreshToken', data.refreshToken);
+      return true;
     } catch (error) {
       console.error('Error refreshing token:', error);
-      logout();
+      return false;
     }
   };
 
