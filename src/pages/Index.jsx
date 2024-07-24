@@ -4,7 +4,7 @@ import * as cocossd from '@tensorflow-models/coco-ssd';
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom';
 import { Camera as CameraIcon, CameraOff, RefreshCw, Play, Square, Mic } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
@@ -19,6 +19,7 @@ const Index = () => {
   const { toast } = useToast()
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
 
   const detectedObjects = useSelector(state => state.objectDetection.detectedObjects);
   const isVideoStarted = useSelector(state => state.objectDetection.isVideoStarted);
@@ -130,76 +131,6 @@ const Index = () => {
     };
   }, [model, isVideoStarted, isDetectionRunning]);
 
-  const { data: detections, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['detections'],
-    queryFn: async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No token found');
-      }
-      const response = await fetch('https://backengine-of3g.fly.dev/api/detections', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.status === 401) {
-        await refreshToken();
-        return refetch();
-      }
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      return response.json();
-    },
-    retry: false,
-    onError: (error) => {
-      toast({
-        title: "Error fetching detections",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-
-  const mutation = useMutation({
-    mutationFn: async (newDetection) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No token found');
-      }
-      const response = await fetch('https://backengine-of3g.fly.dev/api/detections', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(newDetection),
-      });
-      if (response.status === 401) {
-        await refreshToken();
-        return mutation.mutate(newDetection);
-      }
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Detection saved",
-        description: "The detection has been successfully saved to the server.",
-      });
-      refetch(); // Refetch the detections after successful mutation
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to save detection: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
   const refreshToken = async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
@@ -219,17 +150,101 @@ const Index = () => {
       const data = await response.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('refreshToken', data.refreshToken);
+      return data.token;
     } catch (error) {
       console.error('Error refreshing token:', error);
       logout();
+      throw error;
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    queryClient.clear();
     navigate('/login');
   };
+
+  const authenticatedFetch = async (url, options = {}) => {
+    let token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No token found');
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (response.status === 401) {
+      try {
+        token = await refreshToken();
+        return fetch(url, {
+          ...options,
+          headers: {
+            ...options.headers,
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (error) {
+        throw new Error('Authentication failed');
+      }
+    }
+
+    return response;
+  };
+
+  const { data: detections, isLoading, isError, error } = useQuery({
+    queryKey: ['detections'],
+    queryFn: async () => {
+      const response = await authenticatedFetch('https://backengine-of3g.fly.dev/api/detections');
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    },
+    retry: false,
+    onError: (error) => {
+      toast({
+        title: "Error fetching detections",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (newDetection) => {
+      const response = await authenticatedFetch('https://backengine-of3g.fly.dev/api/detections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newDetection),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Detection saved",
+        description: "The detection has been successfully saved to the server.",
+      });
+      queryClient.invalidateQueries(['detections']);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to save detection: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const saveDetection = () => {
     Object.entries(detectedObjects).forEach(([objectType, count]) => {
